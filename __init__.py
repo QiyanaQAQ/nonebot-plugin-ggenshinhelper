@@ -1,5 +1,5 @@
 import traceback
-from typing import Tuple
+from typing import Tuple, Union
 
 from nonebot import on_command
 from nonebot.matcher import Matcher
@@ -7,6 +7,7 @@ from nonebot.typing import T_Handler
 from nonebot.params import CommandArg
 from nonebot.plugin import PluginMetadata
 from nonebot.adapters.onebot.v11 import Message
+from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.log import logger
 
 __plugin_meta__ = PluginMetadata(
@@ -161,21 +162,36 @@ map_dic = {
 
 }
 
+keywords = ("地图", "查询地图")
+
 def create_matchers():
     def create_handler() -> T_Handler:
         async def handler(matcher: Matcher, msg: Message = CommandArg()):
             keyword = msg.extract_plain_text().strip()
-            url = "https://webstatic.mihoyo.com/ys/app/interactive-map/index.html?bbs_presentation_style=no_header&lang=zh-cn&_markerFps=24#/map/2?shown_types="
-            if keyword and map_dic.has_key(keyword):
+            url = f"https://webstatic.mihoyo.com/ys/app/interactive-map/index.html?bbs_presentation_style=no_header&lang=zh-cn&_markerFps=24#/map/2?shown_types="
+            if keyword and keyword in map_dic:
                 param = map_dic[keyword]
-                url = url + param
+                url = f"{url}{param}"
 
-            await matcher.finish(url)
+            data = f"<?xml version='1.0' encoding='UTF-8' standalone='yes' ?> \
+                    <msg serviceID=\"2\" templateID=\"1\" action=\"web\" brief=\"&#91;分享&#93; 原神地图\" sourceMsgId=\"0\" \
+                        url=\"{url}\" flag=\"0\" adverSign=\"0\" multiMsgFlag=\"0\"> \
+                        <item layout=\"2\"><audio cover=\"https://img-static.mihoyo.com/communityweb/upload/2adac6e4e0195c39d90696955f9a7902.png\" \
+                            src=\"https://webstatic.mihoyo.com/ys/app/interactive-map/images/paimon.de7072c3.gif\" /> \
+                            <title>原神地图</title> \
+                            <summary>{keyword}</summary> \
+                        </item> \
+                        <source name=\"米游社\" icon=\"https://bbs.mihoyo.com/_nuxt/img/game-sr.4f80911.jpg\" \
+                            url=\"https://bbs.mihoyo.com/ys/\" action=\"web\" appid=\"-1\" /> \
+                    </msg>"
+
+            message = MessageSegment.xml(data)
+            await matcher.finish(message)
         return handler
 
     matcher = on_command(
         "Map",
-        aliases=set(Tuple["Map","查询地图"]),
+        aliases=set(keywords),
         block=True,
         priority=12,
     )
